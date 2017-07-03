@@ -1,0 +1,143 @@
+<?php
+
+/**
+ * @file
+ * Custom text filter function module
+ */
+
+/**
+ * Implements callback_filter_process().
+ */
+function _custom_filter_filter_popup($text) {
+  global $base_url, $language;
+  $output = $text;
+  $processed = FALSE;
+
+  $links = array();
+  $a_start_ar = explode('<a', $text);
+  if (!empty($a_start_ar) && count($a_start_ar > 1)) {
+
+    array_shift($a_start_ar);
+    foreach ($a_start_ar as $a_with_end) {
+      $a_end_ar = explode('</a>', $a_with_end);
+      if (!empty($a_end_ar)) {
+        $links[] = '<a' . $a_end_ar[0] . '</a>';
+      }
+    }
+  }
+
+  if (!empty($links)) {
+    $output_append = '';
+    foreach ($links as $key => $link) {
+      if (strpos($link, 'custom-filter-popup') !== FALSE) {
+
+        $href = '';
+        $link_ex = explode('href="', $link);
+        if (!empty($link_ex[1])) {
+          $href_ex = explode('"', $link_ex[1]);
+          if (!empty($href_ex[0])) {
+            $href = $href_ex[0];
+          }
+        }
+
+        if (!empty($href)) {
+
+
+          $href = str_replace($base_url, '', $href);
+          if (strpos($href, '/') === 0) {
+            $href = drupal_substr($href, 1);
+          }
+
+          $normal_path = drupal_get_normal_path($href);
+          if (drupal_valid_path($normal_path)) {
+            $attach_content = FALSE;
+            if (strpos($normal_path, 'node/') === 0) {
+              $entity[$normal_path] = menu_get_object('node', 1, $normal_path);
+              if (!empty($entity[$normal_path])) {
+                $attach_content = TRUE;
+                $attach_type = 'node';
+              }
+            }
+
+            if ($attach_content) {
+              $processed = TRUE;
+              if (empty($content[$normal_path])) {
+                if ($attach_type == 'term') {
+                  $content[$normal_path] = taxonomy_term_view($entity[$normal_path]);
+                }
+                elseif ($attach_type == 'node') {
+                  $content[$normal_path] = node_view($entity[$normal_path]);
+                  $content[$normal_path]['#node']->title = NULL;
+                }
+              }
+              if (!empty($content[$normal_path])) {
+                $popup_title = $language->language == 'ru' ? t('Страница') : t('Page');
+                unset($content[$normal_path]['#contextual_links']);
+                if (empty($content_out[$normal_path])) {
+                  $content_out[$normal_path] = drupal_render($content[$normal_path]);
+                }
+
+                // add button - close
+//                $close_element = array(
+//                  '#type' => 'html_tag',
+//                  '#tag' => 'input',
+//                  '#attributes' => array(
+//                    'type' => 'button',
+//                    'value' => 'Закрыть',
+//                    'class' => 'custom-filter-close-button-link button'
+//                  ),
+//                );
+
+                $close_element = array(
+                  '#markup' => '<button class="custom-filter-close-button-link button" type="button" title="Закрыть"></button>',
+                );
+
+                $content_out[$normal_path] = '<div class="custom-filter-close-button-link-wr">' . drupal_render($close_element) . '</div>' . $content_out[$normal_path];
+                $id = drupal_html_id('custom-filter-processed-popup');
+                $replace = str_replace('<a', '<a data-popup-id="' . $id . '"', $link);
+                $replace = str_replace('<a', '<a data-popup-title="' . $popup_title . '"', $replace);
+                $replace = str_replace('custom-filter-popup', 'custom-filter-processed-popup', $replace);
+                //$content_output = '<div id="' . $id . '" class="custom-filter-popup-content-wr">' . $content_out[$normal_path] . '</div>'; //15-08-27
+                $output_append .= '<div id="' . $id . '" class="custom-filter-popup-content-wr">' . $content_out[$normal_path] . '</div>';
+                //$replace .= $content_output;
+                $output = str_replace($link, $replace, $output);
+              }
+            }
+          }
+
+        }
+      }
+    }
+    if(!empty($output_append)){
+      $output .= $output_append;
+    }
+  }
+
+  return $output;
+}
+
+function custom_filter_node_view_alter(&$build) {
+  if ($build['#view_mode'] == 'full') {
+    $node = menu_get_object('node');
+    if (!empty($node->nid) && $node->nid == $build['#node']->nid) {
+      $build['#post_render'][] = 'custom_filter_node_post_render';
+//      $m_path = drupal_get_path('module', 'custom_filter');
+//      $build['#attached']['library'][] = array('system', 'ui.dialog');
+//      $build['#attached']['js'][] = $m_path . '/custom_filter.js';
+//      $build['#attached']['css'][] = $m_path . '/custom_filter.css';
+      _custom_filer_build_attached_files($build);
+    }
+  }
+}
+
+function _custom_filer_build_attached_files(&$build){
+  $m_path = drupal_get_path('module', 'custom_filter');
+  $build['#attached']['library'][] = array('system', 'ui.dialog');
+  $build['#attached']['js'][] = $m_path . '/custom_filter.js';
+  $build['#attached']['css'][] = $m_path . '/custom_filter.css';
+}
+
+
+function custom_filter_node_post_render($vars) {
+  return _custom_filter_filter_popup($vars);
+}

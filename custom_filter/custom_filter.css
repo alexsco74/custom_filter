@@ -1,0 +1,21 @@
+.custom-filter-popup-content-wr {
+    display: none;
+}
+
+.custom-filter-ui-dialog {
+    max-width: 97%;
+}
+
+.custom-filter-ui-dialog.ui-widget-content {
+    border: none;
+    background-color: #ffffff;
+}
+
+.custom-filter-close-button-link-wr {
+    display: block;
+    text-align: right;
+}
+
+.custom-filter-ui-dialog .ui-dialog-titlebar {
+    display: none;
+}

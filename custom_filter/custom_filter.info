@@ -1,0 +1,5 @@
+name = Custom filter
+description = Custom text filter
+package = Custom
+version = VERSION
+core = 7.x
